@@ -1,0 +1,52 @@
+name: Monthly HL Due Diligence
+
+on:
+  # Run on the 1st of every month at 9:00 AM UTC
+  schedule:
+    - cron: '0 9 1 * *'
+  
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+# Required for pushing updated reports back to repo
+permissions:
+  contents: write
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15  # Allow time for web searches
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Run HL Monitor
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+        run: |
+          cd src
+          python hl_monitor.py
+      
+      - name: Commit updated reports
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add reports/
+          git diff --staged --quiet || git commit -m "📊 Update HL due diligence report - $(date +'%Y-%m-%d')"
+          git push
